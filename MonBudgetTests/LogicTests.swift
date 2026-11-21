@@ -83,6 +83,35 @@ final class BalanceTests: XCTestCase {
         XCTAssertEqual(points.last?.balance, 500 - 4 * 20)
     }
 
+    func testMonthSummaryRemainingBudget() {
+        let salary = insert(BudgetEntry(name: "Salaire", amount: 2500, kind: .income,
+                                        frequency: .monthly, startDate: date(2027, 1, 28)))
+        let rent = insert(BudgetEntry(name: "Loyer", amount: 800, kind: .expense, frequency: .monthly,
+                                      startDate: date(2027, 1, 5), category: "Logement"))
+        let edf = insert(BudgetEntry(name: "EDF", amount: 90, kind: .expense, frequency: .monthly,
+                                     startDate: date(2027, 1, 12), category: "Énergie"))
+        let insurance = insert(BudgetEntry(name: "Assurance", amount: 300, kind: .expense,
+                                           frequency: .yearly, startDate: date(2027, 3, 15), category: "Logement"))
+        // Le solde de départ et sa date n'influencent pas le budget du mois.
+        let engine = BalanceEngine(startingBalance: 42, referenceDate: date(2027, 3, 20),
+                                   entries: [salary, rent, edf, insurance], calendar: calendar)
+
+        let march = engine.monthSummary(containing: date(2027, 3, 17))
+        XCTAssertEqual(march.month, date(2027, 3, 1))
+        XCTAssertEqual(march.daysInMonth, 31)
+        XCTAssertEqual(march.income, 2500)
+        XCTAssertEqual(march.expenses, 1190)
+        XCTAssertEqual(march.remaining, 1310)
+        XCTAssertEqual(march.expensesByCategory.first?.category, "Logement")
+        XCTAssertEqual(march.expensesByCategory.first?.total, 1100)
+
+        let april = engine.monthSummary(containing: date(2027, 4, 2))
+        XCTAssertEqual(april.remaining, 2500 - 890)
+        XCTAssertEqual(april.daysInMonth, 30)
+
+        XCTAssertEqual(engine.monthSummaries(around: date(2027, 3, 17), before: 2, after: 12).count, 15)
+    }
+
     func testOnceEntry() {
         let gift = insert(BudgetEntry(name: "Cadeau", amount: 50, kind: .expense,
                                       frequency: .once, startDate: date(2027, 6, 10)))

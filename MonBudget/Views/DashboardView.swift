@@ -24,7 +24,7 @@ struct DashboardView: View {
     private struct Snapshot {
         let today: Decimal
         let endOfMonth: Decimal
-        let monthExpenses: Decimal
+        let month: MonthSummary
         let lowest: BalancePoint?
         let points: [BalancePoint]
         let upcoming: [(occurrence: Occurrence, balanceAfter: Decimal)]
@@ -42,12 +42,6 @@ struct DashboardView: View {
 
         let monthInterval = calendar.dateInterval(of: .month, for: now)
         let lastDayOfMonth = monthInterval.flatMap { calendar.date(byAdding: .day, value: -1, to: $0.end) } ?? now
-        let firstDayOfMonth = monthInterval?.start ?? now
-        let dayBeforeMonth = calendar.date(byAdding: .day, value: -1, to: firstDayOfMonth) ?? now
-        let monthExpenses = engine.occurrences(after: dayBeforeMonth, through: lastDayOfMonth)
-            .filter { $0.amount < 0 }
-            .total
-
         let points = engine.projection(from: now, days: horizon.rawValue)
         let horizonEnd = calendar.date(byAdding: .day, value: horizon.rawValue, to: now) ?? now
 
@@ -60,7 +54,7 @@ struct DashboardView: View {
         return Snapshot(
             today: todayBalance,
             endOfMonth: engine.balance(on: lastDayOfMonth),
-            monthExpenses: -monthExpenses,
+            month: engine.monthSummary(containing: now),
             lowest: points.min { $0.balance < $1.balance },
             points: points,
             upcoming: upcoming
@@ -124,8 +118,18 @@ struct DashboardView: View {
             .background(.thinMaterial, in: .rect(cornerRadius: 20))
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
-                StatCard(title: "Fin du mois", value: Money.format(s.endOfMonth), isNegative: s.endOfMonth < 0)
-                StatCard(title: "Dépenses du mois", value: Money.format(s.monthExpenses))
+                StatCard(
+                    title: "Budget restant du mois",
+                    value: Money.format(s.month.remaining),
+                    detail: "≈ \(Money.format(s.month.remainingPerDay)) / jour",
+                    isNegative: s.month.remaining < 0
+                )
+                StatCard(title: "Solde fin du mois", value: Money.format(s.endOfMonth), isNegative: s.endOfMonth < 0)
+                StatCard(
+                    title: "Dépenses du mois",
+                    value: Money.format(s.month.expenses),
+                    detail: "revenus : \(Money.format(s.month.income))"
+                )
                 if let low = s.lowest {
                     StatCard(
                         title: "Point bas (\(horizon.label))",

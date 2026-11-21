@@ -19,6 +19,45 @@ struct BalancePoint: Identifiable {
     var id: Date { date }
 }
 
+/// Revenus, dépenses et budget restant d'un mois civil.
+struct MonthSummary: Identifiable {
+    let month: Date              // premier jour du mois
+    let daysInMonth: Int
+    let occurrences: [Occurrence]
+
+    var id: Date { month }
+
+    var income: Decimal { occurrences.filter { $0.amount > 0 }.total }
+    /// Total des dépenses, en valeur positive.
+    var expenses: Decimal { -occurrences.filter { $0.amount < 0 }.total }
+    /// Budget restant = revenus − dépenses prévues du mois.
+    var remaining: Decimal { income - expenses }
+    /// Budget restant réparti sur les jours du mois.
+    var remainingPerDay: Decimal { daysInMonth > 0 ? remaining / Decimal(daysInMonth) : remaining }
+
+    /// Dépenses regroupées par catégorie, de la plus grosse à la plus petite.
+    var expensesByCategory: [CategoryTotal] {
+        var totals: [String: Decimal] = [:]
+        for occurrence in occurrences where occurrence.amount < 0 {
+            let key = occurrence.category.isEmpty ? "Sans catégorie" : occurrence.category
+            let current = totals[key] ?? 0
+            totals[key] = current - occurrence.amount
+        }
+        var result: [CategoryTotal] = []
+        for (category, total) in totals {
+            result.append(CategoryTotal(category: category, total: total))
+        }
+        result.sort { lhs, rhs in lhs.total > rhs.total }
+        return result
+    }
+}
+
+struct CategoryTotal: Identifiable {
+    let category: String
+    let total: Decimal
+    var id: String { category }
+}
+
 extension Array where Element == Occurrence {
     var total: Decimal { reduce(Decimal(0)) { $0 + $1.amount } }
 }
@@ -70,6 +109,28 @@ struct BalanceEngine {
             return startingBalance + occurrences(after: ref, through: day).total
         } else {
             return startingBalance - occurrences(after: day, through: ref).total
+        }
+    }
+
+    /// Toutes les échéances du mois civil contenant `date` (indépendamment du solde de départ).
+    func monthSummary(containing date: Date) -> MonthSummary {
+        guard let interval = calendar.dateInterval(of: .month, for: date),
+              let lastDay = calendar.date(byAdding: .day, value: -1, to: interval.end),
+              let dayBefore = calendar.date(byAdding: .day, value: -1, to: interval.start) else {
+            return MonthSummary(month: date, daysInMonth: 30, occurrences: [])
+        }
+        let days = calendar.range(of: .day, in: .month, for: interval.start)?.count ?? 30
+        return MonthSummary(
+            month: interval.start,
+            daysInMonth: days,
+            occurrences: occurrences(after: dayBefore, through: lastDay)
+        )
+    }
+
+    /// Résumés de `before` mois avant à `after` mois après le mois de `date`.
+    func monthSummaries(around date: Date, before: Int, after: Int) -> [MonthSummary] {
+        (-before...after).compactMap { offset in
+            calendar.date(byAdding: .month, value: offset, to: date).map { monthSummary(containing: $0) }
         }
     }
 

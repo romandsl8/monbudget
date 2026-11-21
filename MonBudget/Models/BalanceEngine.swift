@@ -8,6 +8,7 @@ struct Occurrence: Identifiable, Hashable {
     let category: String
     let date: Date
     let amount: Decimal   // signé
+    var isCleared: Bool = false   // pointée (passée sur le compte)
 
     var id: String { "\(entryID.hashValue)|\(date.timeIntervalSinceReferenceDate)" }
 }
@@ -86,7 +87,8 @@ struct BalanceEngine {
                     name: entry.name,
                     category: entry.category,
                     date: date,
-                    amount: entry.signedAmount
+                    amount: entry.signedAmount,
+                    isCleared: entry.isCleared(on: date, calendar: calendar)
                 )
                 result.append(occurrence)
             }
@@ -132,6 +134,45 @@ struct BalanceEngine {
         (-before...after).compactMap { offset in
             calendar.date(byAdding: .month, value: offset, to: date).map { monthSummary(containing: $0) }
         }
+    }
+
+    // MARK: - Pointage
+    // Ici `startingBalance` est le solde actuel du compte : saisi à la main le jour
+    // `referenceDate`, puis ajusté à chaque échéance pointée.
+
+    /// Échéances postérieures au jour de saisie du solde, jusqu'à `end` (pointées ou non).
+    func checklist(through end: Date) -> [Occurrence] {
+        occurrences(after: referenceDate, through: end)
+    }
+
+    /// Ce qu'il reste pour dépenser d'ici `end` : solde actuel + échéances non pointées.
+    func leftToSpend(through end: Date) -> Decimal {
+        startingBalance + checklist(through: end).filter { !$0.isCleared }.total
+    }
+
+    /// Solde prévu jour par jour à partir du solde actuel et des échéances non pointées.
+    /// Les échéances en retard (date passée, non pointées) sont comptées dès aujourd'hui.
+    func pendingProjection(from start: Date, through end: Date) -> [BalancePoint] {
+        let first = calendar.startOfDay(for: start)
+        let last = calendar.startOfDay(for: end)
+        var running = startingBalance
+        var byDay: [Date: Decimal] = [:]
+        for occurrence in checklist(through: last) where !occurrence.isCleared {
+            if occurrence.date <= first {
+                running += occurrence.amount
+            } else {
+                let current = byDay[occurrence.date] ?? 0
+                byDay[occurrence.date] = current + occurrence.amount
+            }
+        }
+        var points = [BalancePoint(date: first, balance: running)]
+        var day = first
+        while let next = calendar.date(byAdding: .day, value: 1, to: day), next <= last {
+            running += byDay[next] ?? 0
+            points.append(BalancePoint(date: next, balance: running))
+            day = next
+        }
+        return points
     }
 
     /// Un point par jour, de `start` à `start + days`.

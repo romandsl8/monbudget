@@ -65,6 +65,8 @@ final class BudgetEntry {
     var note: String = ""
     var isActive: Bool = true
     var createdAt: Date = Date.now
+    /// Jours des échéances pointées (passées sur le compte).
+    var clearedDates: [Date] = []
 
     init(
         name: String,
@@ -129,6 +131,20 @@ final class BudgetEntry {
             index += 1
         }
         return result
+    }
+
+    /// L'échéance de ce jour a-t-elle été pointée ?
+    func isCleared(on date: Date, calendar: Calendar = .current) -> Bool {
+        clearedDates.contains { calendar.isDate($0, inSameDayAs: date) }
+    }
+
+    /// Pointe ou dépointe l'échéance de ce jour.
+    func setCleared(_ cleared: Bool, on date: Date, calendar: Calendar = .current) {
+        var dates = clearedDates.filter { !calendar.isDate($0, inSameDayAs: date) }
+        if cleared {
+            dates.append(calendar.startOfDay(for: date))
+        }
+        clearedDates = dates
     }
 
     /// Prochaine échéance à partir d'aujourd'hui (inclus).

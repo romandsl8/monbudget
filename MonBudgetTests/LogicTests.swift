@@ -112,6 +112,35 @@ final class BalanceTests: XCTestCase {
         XCTAssertEqual(engine.monthSummaries(around: date(2027, 3, 17), before: 2, after: 12).count, 15)
     }
 
+    func testClearingAndLeftToSpend() {
+        let salary = insert(BudgetEntry(name: "Salaire", amount: 2000, kind: .income,
+                                        frequency: .monthly, startDate: date(2027, 1, 28)))
+        let rent = insert(BudgetEntry(name: "Loyer", amount: 700, kind: .expense,
+                                      frequency: .monthly, startDate: date(2027, 1, 5)))
+        // Solde saisi le 1er février : 300 €.
+        var engine = BalanceEngine(startingBalance: 300, referenceDate: date(2027, 2, 1),
+                                   entries: [salary, rent], calendar: calendar)
+        let end = date(2027, 3, 1)
+        XCTAssertEqual(engine.checklist(through: end).count, 2)          // loyer 5/02, salaire 28/02
+        XCTAssertEqual(engine.leftToSpend(through: end), 300 - 700 + 2000)
+
+        // Projection depuis le 10/02 : le loyer non pointé est en retard, compté dès le 1er point.
+        let points = engine.pendingProjection(from: date(2027, 2, 10), through: end)
+        XCTAssertEqual(points.first?.balance, 300 - 700)
+        XCTAssertEqual(points.last?.balance, 300 - 700 + 2000)
+
+        // Pointage du loyer : il passe dans le solde (comme le fait l'écran).
+        rent.setCleared(true, on: date(2027, 2, 5), calendar: calendar)
+        XCTAssertTrue(rent.isCleared(on: date(2027, 2, 5), calendar: calendar))
+        engine = BalanceEngine(startingBalance: 300 - 700, referenceDate: date(2027, 2, 1),
+                               entries: [salary, rent], calendar: calendar)
+        XCTAssertEqual(engine.leftToSpend(through: end), 300 - 700 + 2000)
+        XCTAssertEqual(engine.checklist(through: end).filter(\.isCleared).count, 1)
+
+        rent.setCleared(false, on: date(2027, 2, 5), calendar: calendar)
+        XCTAssertFalse(rent.isCleared(on: date(2027, 2, 5), calendar: calendar))
+    }
+
     func testOnceEntry() {
         let gift = insert(BudgetEntry(name: "Cadeau", amount: 50, kind: .expense,
                                       frequency: .once, startDate: date(2027, 6, 10)))

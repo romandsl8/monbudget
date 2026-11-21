@@ -1,0 +1,21 @@
+# Projet Xcode généré par XcodeGen (CI)
+*.xcodeproj/
+*.xcworkspace/
+Config/
+
+# Icônes générées par scripts/make_icon.py (CI)
+MonBudget/Resources/Assets.xcassets/AppIcon.appiconset/*.png
+
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Divers
+.DS_Store
+__pycache__/
+*.pyc

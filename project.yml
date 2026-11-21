@@ -1,0 +1,96 @@
+# =====================================================================
+#  MonBudget — projet XcodeGen
+#  Le fichier .xcodeproj n'est PAS versionné : GitHub Actions le génère avec
+#  « xcodegen generate ».
+#
+#  >>> IDENTIFIANTS : tout se change ICI (et dans .github/workflows/testflight.yml) <<<
+#  APP_DISPLAY_NAME   nom affiché sous l'icône
+#  APP_BUNDLE_ID      bundle ID de l'appli
+#  MARKETING_VERSION  version affichée (1.0, 1.1…). Le numéro de build est
+#                     calculé automatiquement par GitHub Actions.
+# =====================================================================
+
+name: MonBudget
+
+options:
+  bundleIdPrefix: fr.tanguy
+  developmentLanguage: fr
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    APP_DISPLAY_NAME: Mon Budget
+    APP_BUNDLE_ID: fr.tanguy.monbudget
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    VERSIONING_SYSTEM: apple-generic
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  MonBudget:
+    type: application
+    platform: iOS
+    sources:
+      - path: MonBudget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: MonBudget
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Config/MonBudget-Info.plist
+      properties:
+        CFBundleDisplayName: $(APP_DISPLAY_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDevelopmentRegion: fr
+        CFBundleLocalizations: [fr]
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # Toutes les orientations, pas de UIRequiresFullScreen :
+        # l'appli se redimensionne à chaud (iPhone Duo plié / déplié).
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+
+  MonBudgetTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MonBudgetTests
+    dependencies:
+      - target: MonBudget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/MonBudget.app/MonBudget
+        BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  MonBudget:
+    build:
+      targets:
+        MonBudget: all
+        MonBudgetTests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - MonBudgetTests
+    archive:
+      config: Release

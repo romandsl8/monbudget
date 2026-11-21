@@ -7,7 +7,26 @@ struct CreditsView: View {
     @Environment(\.modelContext) private var context
     @Query(filter: #Predicate<BudgetEntry> { $0.isLoan }, sort: \BudgetEntry.name)
     private var loans: [BudgetEntry]
+    @Query(sort: \BudgetEntry.name) private var allEntries: [BudgetEntry]
     @State private var editorTarget: LoanEditorTarget?
+    @State private var showPicker = false
+    @State private var pendingEdit: BudgetEntry?
+
+    /// Dépenses existantes qui ne sont pas encore suivies comme crédit.
+    private var candidates: [BudgetEntry] {
+        allEntries.filter { $0.kind == .expense && !$0.isLoan }
+    }
+
+    /// Transforme une dépense existante en crédit ; ouvre le formulaire si la date de fin manque.
+    private func adopt(_ entry: BudgetEntry) {
+        entry.isLoan = true
+        if entry.category.isEmpty { entry.category = "Crédit" }
+        if entry.endDate == nil || entry.frequency != .monthly {
+            // Le formulaire s'ouvre une fois la liste refermée (voir onDismiss).
+            pendingEdit = entry
+        }
+        showPicker = false
+    }
 
     enum LoanEditorTarget: Identifiable {
         case new
@@ -91,20 +110,40 @@ struct CreditsView: View {
                 } description: {
                     Text("Ajoutez un crédit avec sa mensualité et sa date de fin : l'appli calcule ce qu'il reste à rembourser. Vous pouvez aussi marquer une opération existante comme crédit.")
                 } actions: {
-                    Button("Ajouter un crédit") { editorTarget = .new }
-                        .buttonStyle(.borderedProminent)
+                    if !candidates.isEmpty {
+                        Button("Choisir une dépense enregistrée") { showPicker = true }
+                            .buttonStyle(.borderedProminent)
+                    }
+                    Button("Saisir un nouveau crédit") { editorTarget = .new }
+                        .buttonStyle(.bordered)
                 }
             }
         }
         .navigationTitle("Crédits")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("Ajouter", systemImage: "plus") { editorTarget = .new }
+                Menu {
+                    Button("Choisir une dépense enregistrée", systemImage: "list.bullet") { showPicker = true }
+                        .disabled(candidates.isEmpty)
+                    Button("Saisir un nouveau crédit", systemImage: "square.and.pencil") { editorTarget = .new }
+                } label: {
+                    Label("Ajouter", systemImage: "plus")
+                }
             }
         }
         .sheet(item: $editorTarget) { target in
             NavigationStack {
                 EntryEditorView(entry: target.entry, presetLoan: true)
+            }
+        }
+        .sheet(isPresented: $showPicker, onDismiss: {
+            if let entry = pendingEdit {
+                pendingEdit = nil
+                editorTarget = .edit(entry)
+            }
+        }) {
+            NavigationStack {
+                ExpensePickerView(candidates: candidates, onPick: adopt)
             }
         }
     }
@@ -113,6 +152,73 @@ struct CreditsView: View {
         var text = "\(Money.format(totals.monthly)) de mensualités par mois"
         if let last = totals.lastDate {
             text += "\ndernier crédit terminé en " + last.formatted(.dateTime.month(.wide).year())
+        }
+        return text
+    }
+}
+
+/// Liste des dépenses déjà saisies, celles de la catégorie « Crédit » en premier.
+private struct ExpensePickerView: View {
+    let candidates: [BudgetEntry]
+    let onPick: (BudgetEntry) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private func isCreditCategory(_ entry: BudgetEntry) -> Bool {
+        entry.category.localizedCaseInsensitiveContains("crédit")
+            || entry.category.localizedCaseInsensitiveContains("credit")
+            || entry.category.localizedCaseInsensitiveContains("prêt")
+    }
+
+    var body: some View {
+        let credits = candidates.filter { isCreditCategory($0) }
+        let others = candidates.filter { !isCreditCategory($0) }
+        List {
+            if !credits.isEmpty {
+                Section("Catégorie Crédit") {
+                    ForEach(credits) { row($0) }
+                }
+            }
+            if !others.isEmpty {
+                Section("Autres dépenses") {
+                    ForEach(others) { row($0) }
+                }
+            }
+        }
+        .navigationTitle("Choisir une dépense")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Annuler", role: .cancel) { dismiss() }
+            }
+        }
+    }
+
+    private func row(_ entry: BudgetEntry) -> some View {
+        Button {
+            onPick(entry)
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.name)
+                    Text(rowDetail(entry))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(Money.format(entry.amount))
+                    .monospacedDigit()
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func rowDetail(_ entry: BudgetEntry) -> String {
+        var text = entry.frequency.label
+        if let end = entry.endDate {
+            text += " · jusqu'en " + end.formatted(.dateTime.month(.wide).year())
+        } else {
+            text += " · date de fin à indiquer"
         }
         return text
     }

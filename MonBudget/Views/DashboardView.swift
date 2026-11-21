@@ -8,7 +8,44 @@ struct DashboardView: View {
     @Query private var entries: [BudgetEntry]
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var showBalanceEditor = false
+    @State private var chosenDate: Date = {
+        let calendar = Calendar.current
+        let interval = calendar.dateInterval(of: .month, for: .now)
+        return interval.flatMap { calendar.date(byAdding: .day, value: -1, to: $0.end) } ?? .now
+    }()
     private var account = AccountSettings()
+
+    /// Solde prévu à la fin du jour choisi : solde actuel + échéances non pointées jusqu'à ce jour.
+    private func datedBalanceCard() -> some View {
+        let engine = BalanceEngine(
+            startingBalance: account.startingBalance,
+            referenceDate: account.referenceDate,
+            entries: entries
+        )
+        let pending = engine.checklist(through: chosenDate).filter { !$0.isCleared }
+        let balance = account.startingBalance + pending.total
+        let count = pending.count
+        return VStack(alignment: .leading, spacing: 6) {
+            DatePicker("Mon solde le", selection: $chosenDate,
+                       in: Calendar.current.startOfDay(for: .now)...,
+                       displayedComponents: .date)
+                .font(.subheadline)
+            Text(Money.format(balance))
+                .font(.title2.bold())
+                .monospacedDigit()
+                .foregroundStyle(balance < 0 ? Color.red : Color.primary)
+                .contentTransition(.numericText())
+            Text(count == 0
+                 ? "aucune opération d'ici là"
+                 : "\(count) opération\(count > 1 ? "s" : "") à venir d'ici là (\(Money.format(pending.total, signed: true)))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.thinMaterial, in: .rect(cornerRadius: 16))
+        .animation(.default, value: chosenDate)
+    }
 
     private struct UpcomingItem: Identifiable {
         let occurrence: Occurrence
@@ -192,6 +229,8 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity)
             .padding()
             .background(.thinMaterial, in: .rect(cornerRadius: 20))
+
+            datedBalanceCard()
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                 StatCard(

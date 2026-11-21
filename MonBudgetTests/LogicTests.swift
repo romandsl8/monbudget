@@ -141,6 +141,28 @@ final class BalanceTests: XCTestCase {
         XCTAssertFalse(rent.isCleared(on: date(2027, 2, 5), calendar: calendar))
     }
 
+    func testLoanRemainingAmount() {
+        let loan = insert(BudgetEntry(name: "Prêt auto", amount: 250, kind: .expense, frequency: .monthly,
+                                      startDate: date(2026, 1, 10), endDate: date(2027, 12, 10)))
+        loan.isLoan = true
+        // 24 mensualités (janv. 2026 → déc. 2027). Au 15 mars 2027 : 15 payées, 9 restantes.
+        let status = loan.loanStatus(today: date(2027, 3, 15), calendar: calendar)
+        XCTAssertEqual(status?.totalPayments, 24)
+        XCTAssertEqual(status?.remainingPayments, 9)
+        XCTAssertEqual(status?.remainingAmount, 2250)
+        XCTAssertEqual(status?.paidAmount, 3750)
+        XCTAssertEqual(status?.nextDate, date(2027, 4, 10))
+
+        // Le jour d'une mensualité : comptée tant qu'elle n'est pas pointée.
+        XCTAssertEqual(loan.loanStatus(today: date(2027, 4, 10), calendar: calendar)?.remainingPayments, 9)
+        loan.setCleared(true, on: date(2027, 4, 10), calendar: calendar)
+        XCTAssertEqual(loan.loanStatus(today: date(2027, 4, 10), calendar: calendar)?.remainingPayments, 8)
+
+        XCTAssertEqual(loan.loanStatus(today: date(2028, 1, 1), calendar: calendar)?.isFinished, true)
+        loan.endDate = nil
+        XCTAssertNil(loan.loanStatus(today: date(2027, 3, 15), calendar: calendar))
+    }
+
     func testOnceEntry() {
         let gift = insert(BudgetEntry(name: "Cadeau", amount: 50, kind: .expense,
                                       frequency: .once, startDate: date(2027, 6, 10)))

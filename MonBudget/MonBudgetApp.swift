@@ -12,7 +12,7 @@ struct MonBudgetApp: App {
 }
 
 enum AppTab: Hashable {
-    case dashboard, months, entries, settings
+    case dashboard, months, entries, credits, settings
 }
 
 /// Racine : barre d'onglets sur écran étroit (téléphone plié),
@@ -32,6 +32,9 @@ struct RootView: View {
             }
             Tab("Opérations", systemImage: "arrow.left.arrow.right", value: AppTab.entries) {
                 EntriesView()
+            }
+            Tab("Crédits", systemImage: "building.columns", value: AppTab.credits) {
+                NavigationStack { CreditsView() }
             }
             Tab("Réglages", systemImage: "gearshape", value: AppTab.settings) {
                 NavigationStack { SettingsView() }

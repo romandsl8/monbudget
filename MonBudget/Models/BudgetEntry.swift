@@ -67,6 +67,8 @@ final class BudgetEntry {
     var createdAt: Date = Date.now
     /// Jours des échéances pointées (passées sur le compte).
     var clearedDates: [Date] = []
+    /// Remboursement de crédit (suivi dans l'onglet Crédits).
+    var isLoan: Bool = false
 
     init(
         name: String,
@@ -110,6 +112,11 @@ final class BudgetEntry {
     /// tombe le 30 avril puis à nouveau le 31 mai (pas de dérive).
     func occurrenceDates(after lower: Date, through upper: Date, calendar: Calendar = .current) -> [Date] {
         guard isActive else { return [] }
+        return scheduleDates(after: lower, through: upper, calendar: calendar)
+    }
+
+    /// Comme `occurrenceDates`, mais même si l'opération est en pause.
+    func scheduleDates(after lower: Date, through upper: Date, calendar: Calendar = .current) -> [Date] {
         let start = calendar.startOfDay(for: startDate)
         var limit = calendar.startOfDay(for: upper)
         if let endDate {

@@ -195,9 +195,9 @@ struct DashboardView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                 StatCard(
-                    title: "Budget du mois",
+                    title: "Budget restant de \(s.month.month.formatted(.dateTime.month(.wide)))",
                     value: Money.format(s.month.remaining),
-                    detail: "revenus − dépenses de \(s.month.month.formatted(.dateTime.month(.wide)))",
+                    detail: "tous les revenus − toutes les dépenses du mois",
                     isNegative: s.month.remaining < 0
                 )
                 StatCard(

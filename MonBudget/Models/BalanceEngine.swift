@@ -38,19 +38,28 @@ struct BalanceEngine {
         let lower = calendar.startOfDay(for: start)
         let upper = calendar.startOfDay(for: end)
         guard upper > lower else { return [] }
-        return entries
-            .flatMap { entry in
-                entry.occurrenceDates(after: lower, through: upper, calendar: calendar).map { date in
-                    Occurrence(
-                        entryID: entry.persistentModelID,
-                        name: entry.name,
-                        category: entry.category,
-                        date: date,
-                        amount: entry.signedAmount
-                    )
-                }
+        var result: [Occurrence] = []
+        for entry in entries {
+            let dates = entry.occurrenceDates(after: lower, through: upper, calendar: calendar)
+            for date in dates {
+                let occurrence = Occurrence(
+                    entryID: entry.persistentModelID,
+                    name: entry.name,
+                    category: entry.category,
+                    date: date,
+                    amount: entry.signedAmount
+                )
+                result.append(occurrence)
             }
-            .sorted { $0.date == $1.date ? $0.amount > $1.amount : $0.date < $1.date }
+        }
+        result.sort(by: Self.isOrderedBefore)
+        return result
+    }
+
+    /// Par date, puis revenus avant dépenses le même jour.
+    private static func isOrderedBefore(_ lhs: Occurrence, _ rhs: Occurrence) -> Bool {
+        if lhs.date != rhs.date { return lhs.date < rhs.date }
+        return lhs.amount > rhs.amount
     }
 
     /// Solde à la fin de la journée `date` (passée ou future).

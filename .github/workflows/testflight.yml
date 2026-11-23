@@ -40,9 +40,9 @@ env:
 
 jobs:
   testflight:
-    # macos-26 : machines Mac standard de GitHub, plus disponibles que l'image « xcode-27 »
-    # (qui restait parfois en file d'attente sans machine). On y choisit le Xcode 27 installé.
-    runs-on: macos-26
+    # Image Xcode 27 de GitHub (Mac arm64). En cas de pénurie de machines Mac chez GitHub,
+    # le job peut rester en file puis être annulé : il suffit de le relancer.
+    runs-on: xcode-27
     timeout-minutes: 75
     env:
       APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}

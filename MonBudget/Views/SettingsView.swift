@@ -71,6 +71,7 @@ struct SettingsView: View {
         guard let value = parsedBalance else { return }
         account.startingBalance = value
         account.referenceDate = Calendar.current.startOfDay(for: date)
+        account.trackingStart = Calendar.current.startOfDay(for: date)
         saved = true
         if isOnboarding { dismiss() }
     }

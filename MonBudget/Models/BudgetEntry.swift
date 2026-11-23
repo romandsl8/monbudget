@@ -67,6 +67,8 @@ final class BudgetEntry {
     var createdAt: Date = Date.now
     /// Jours des échéances pointées (passées sur le compte).
     var clearedDates: [Date] = []
+    /// Jour où chaque échéance de `clearedDates` a été cochée (même ordre).
+    var clearedAtDates: [Date] = []
     /// Remboursement de crédit (suivi dans l'onglet Crédits).
     var isLoan: Bool = false
 
@@ -145,13 +147,26 @@ final class BudgetEntry {
         clearedDates.contains { calendar.isDate($0, inSameDayAs: date) }
     }
 
-    /// Pointe ou dépointe l'échéance de ce jour.
-    func setCleared(_ cleared: Bool, on date: Date, calendar: Calendar = .current) {
-        var dates = clearedDates.filter { !calendar.isDate($0, inSameDayAs: date) }
-        if cleared {
-            dates.append(calendar.startOfDay(for: date))
+    /// Jour où l'échéance de `date` a été cochée (nil si elle ne l'est pas).
+    func clearedOn(_ date: Date, calendar: Calendar = .current) -> Date? {
+        guard let index = clearedDates.firstIndex(where: { calendar.isDate($0, inSameDayAs: date) }) else { return nil }
+        return index < clearedAtDates.count ? clearedAtDates[index] : clearedDates[index]
+    }
+
+    /// Pointe ou dépointe l'échéance de ce jour (`now` = moment où l'on coche).
+    func setCleared(_ cleared: Bool, on date: Date, at now: Date = .now, calendar: Calendar = .current) {
+        var days: [Date] = []
+        var clearedAt: [Date] = []
+        for (index, day) in clearedDates.enumerated() where !calendar.isDate(day, inSameDayAs: date) {
+            days.append(day)
+            clearedAt.append(index < clearedAtDates.count ? clearedAtDates[index] : day)
         }
-        clearedDates = dates
+        if cleared {
+            days.append(calendar.startOfDay(for: date))
+            clearedAt.append(calendar.startOfDay(for: now))
+        }
+        clearedDates = days
+        clearedAtDates = clearedAt
     }
 
     /// Prochaine échéance à partir d'aujourd'hui (inclus).

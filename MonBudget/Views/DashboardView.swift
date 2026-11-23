@@ -19,7 +19,7 @@ struct DashboardView: View {
     private func datedBalanceCard() -> some View {
         let engine = BalanceEngine(
             startingBalance: account.startingBalance,
-            referenceDate: account.referenceDate,
+            referenceDate: account.trackingStart,
             entries: entries
         )
         let pending = engine.checklist(through: chosenDate).filter { !$0.isCleared }
@@ -77,7 +77,7 @@ struct DashboardView: View {
         let horizonEnd = calendar.date(byAdding: .month, value: 1, to: today) ?? today
         let engine = BalanceEngine(
             startingBalance: account.startingBalance,
-            referenceDate: account.referenceDate,
+            referenceDate: account.trackingStart,
             entries: entries
         )
 
@@ -88,6 +88,9 @@ struct DashboardView: View {
         var items: [UpcomingItem] = []
         for occurrence in checklist {
             if occurrence.isCleared {
+                // Une opération cochée reste visible jusqu'à la fin du jour où elle a été cochée.
+                let clearedDay = calendar.startOfDay(for: occurrence.clearedOn ?? occurrence.date)
+                if clearedDay < today { continue }
                 items.append(UpcomingItem(occurrence: occurrence, balanceAfter: nil, isOverdue: false))
             } else {
                 running += occurrence.amount
@@ -394,7 +397,7 @@ private struct BalanceEditorView: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text("Tapez le solde affiché par votre banque aujourd'hui. Les opérations prévues jusqu'à aujourd'hui sont considérées comme déjà passées.")
+                Text("Tapez le solde affiché par votre banque aujourd'hui. Les opérations non cochées restent « à venir » : si l'une d'elles est déjà comprise dans ce solde, cochez-la avant de le corriger.")
             }
         }
         .navigationTitle("Solde actuel")

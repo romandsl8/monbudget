@@ -5,6 +5,14 @@ import SwiftUI
 struct AccountSettings: DynamicProperty {
     @AppStorage("startingBalance") private var balanceRaw: String = "0"
     @AppStorage("referenceDate") private var dateRaw: Double = 0
+    @AppStorage("trackingStart") private var trackingRaw: Double = 0
+
+    /// Début du suivi : les échéances postérieures restent « à venir » tant qu'elles ne sont pas cochées,
+    /// même si le solde est corrigé à la main ensuite.
+    var trackingStart: Date {
+        get { trackingRaw == 0 ? referenceDate : Date(timeIntervalSinceReferenceDate: trackingRaw) }
+        nonmutating set { trackingRaw = newValue.timeIntervalSinceReferenceDate }
+    }
 
     var isConfigured: Bool { dateRaw != 0 }
 

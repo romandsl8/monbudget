@@ -163,6 +163,27 @@ final class BalanceTests: XCTestCase {
         XCTAssertNil(loan.loanStatus(today: date(2027, 3, 15), calendar: calendar))
     }
 
+    func testClearedOnRemembersWhenChecked() {
+        let rent = insert(BudgetEntry(name: "Loyer", amount: 700, kind: .expense,
+                                      frequency: .monthly, startDate: date(2027, 1, 5)))
+        XCTAssertNil(rent.clearedOn(date(2027, 2, 5), calendar: calendar))
+        // Échéance du 5 février cochée en retard, le 9.
+        rent.setCleared(true, on: date(2027, 2, 5), at: date(2027, 2, 9), calendar: calendar)
+        rent.setCleared(true, on: date(2027, 3, 5), at: date(2027, 3, 5), calendar: calendar)
+        XCTAssertEqual(rent.clearedOn(date(2027, 2, 5), calendar: calendar), date(2027, 2, 9))
+        XCTAssertEqual(rent.clearedOn(date(2027, 3, 5), calendar: calendar), date(2027, 3, 5))
+        rent.setCleared(false, on: date(2027, 2, 5), calendar: calendar)
+        XCTAssertNil(rent.clearedOn(date(2027, 2, 5), calendar: calendar))
+        XCTAssertEqual(rent.clearedOn(date(2027, 3, 5), calendar: calendar), date(2027, 3, 5))
+
+        // Le moteur transmet le jour du pointage ; une échéance non cochée reste à venir.
+        let engine = BalanceEngine(startingBalance: 0, referenceDate: date(2027, 1, 31),
+                                   entries: [rent], calendar: calendar)
+        let list = engine.checklist(through: date(2027, 4, 30))
+        XCTAssertEqual(list.map(\.isCleared), [false, true, false])
+        XCTAssertEqual(list[1].clearedOn, date(2027, 3, 5))
+    }
+
     func testOnceEntry() {
         let gift = insert(BudgetEntry(name: "Cadeau", amount: 50, kind: .expense,
                                       frequency: .once, startDate: date(2027, 6, 10)))

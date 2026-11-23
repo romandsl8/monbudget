@@ -9,6 +9,7 @@ struct Occurrence: Identifiable, Hashable {
     let date: Date
     let amount: Decimal   // signé
     var isCleared: Bool = false   // pointée (passée sur le compte)
+    var clearedOn: Date? = nil    // jour où elle a été cochée
 
     var id: String { "\(entryID.hashValue)|\(date.timeIntervalSinceReferenceDate)" }
 }
@@ -88,7 +89,8 @@ struct BalanceEngine {
                     category: entry.category,
                     date: date,
                     amount: entry.signedAmount,
-                    isCleared: entry.isCleared(on: date, calendar: calendar)
+                    isCleared: entry.isCleared(on: date, calendar: calendar),
+                    clearedOn: entry.clearedOn(date, calendar: calendar)
                 )
                 result.append(occurrence)
             }
